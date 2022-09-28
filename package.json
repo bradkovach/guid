@@ -1,0 +1,19 @@
+{
+  "name": "typescript",
+  "version": "0.0.0",
+  "private": true,
+  "dependencies": {
+    "@types/uuid": "^8.3.4",
+    "chalk": "^4.0.0",
+    "ez-guid": "^1.2.5",
+    "guid-typescript": "^1.0.9",
+    "moment": "^2.29.4",
+    "react-uuid": "^1.0.3",
+    "typescript-guid": "^1.0.3",
+    "uuid": "^9.0.0"
+  },
+  "prettier": {
+    "tabWidth": 4,
+    "printWidth": 115
+  }
+}
