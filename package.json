@@ -1,19 +1,36 @@
 {
-  "name": "typescript",
-  "version": "0.0.0",
-  "private": true,
-  "dependencies": {
-    "@types/uuid": "^8.3.4",
-    "chalk": "^4.0.0",
-    "ez-guid": "^1.2.5",
-    "guid-typescript": "^1.0.9",
-    "moment": "^2.29.4",
-    "react-uuid": "^1.0.3",
-    "typescript-guid": "^1.0.3",
-    "uuid": "^9.0.0"
+  "name": "@bradkovach/guid",
+  "version": "1.0.0",
+  "description": "Zero-dependency RFC 4122-compliant GUID/UUID generation library.",
+  "scripts": {
+    "clean": "rm -rf dist/",
+    "test": "mocha --config .mocharc",
+    "test:watch": "mocha --config .mocharc --watch",
+    "test:coverage": "nyc npm run test",
+    "build": "npm run clean && tsc"
+  },
+  "main": "./dist/Guid.js",
+  "types": "./dist/Guid.d.ts",
+  "files": [
+    "/dist/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bradkovach/guid"
   },
   "prettier": {
     "tabWidth": 4,
-    "printWidth": 115
+    "printWidth": 100,
+    "singleQuote": true
+  },
+  "devDependencies": {
+    "@istanbuljs/nyc-config-typescript": "^1.0.2",
+    "@types/chai": "^4.3.3",
+    "@types/mocha": "^10.0.0",
+    "chai": "^4.3.6",
+    "mocha": "^10.0.0",
+    "nyc": "^15.1.0",
+    "prettier": "^2.7.1",
+    "ts-node": "^10.9.1"
   }
 }

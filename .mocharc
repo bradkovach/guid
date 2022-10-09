@@ -1,0 +1,5 @@
+{
+    "watch-files": ["src/**/!(*.spec.*).[tj]s?(x)"],
+    "spec":["src/**/*.spec.ts"],
+    "require": "ts-node/register"
+}
