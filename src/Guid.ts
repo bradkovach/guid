@@ -1,3 +1,7 @@
+import { ensureByte } from './util/ensureByte';
+import { isValidVersion4GuidForBase } from './util/isValidVersion4GuidForBase';
+import { normalizeGuidString } from './util/normalizeGuidString';
+
 export type ByteConverter = (byte: number) => string;
 
 export class Guid {
@@ -26,18 +30,6 @@ export class Guid {
         const bytes = new Uint8Array(16);
         bytes.fill(0);
         return new Guid(bytes);
-    }
-
-    /**
-     * Tests that a number actually represents a byte.
-     * @param byte A number to be evaluated as a byte
-     */
-    public static ensureByte(byte: number) {
-        if (byte < 0 || byte > 255) {
-            throw Error(
-                `Supplied number is not a valid byte. Value ${byte} is not in range 0 to 255.`
-            );
-        }
     }
 
     /**
@@ -74,15 +66,25 @@ export class Guid {
      * @throws Error if the string is not valid.
      */
     public static fromString(guidString: string) {
-        const normalizedGuid = Guid.normalizeGuidString(guidString);
-        if (this.isValidV4HexString(normalizedGuid)) {
+        const normalizedGuid = normalizeGuidString(guidString);
+        if (normalizedGuid.length === 32 && isValidVersion4GuidForBase(normalizedGuid, 16)) {
             let bytes = Uint8Array.from(
-                normalizedGuid.match(/[a-f0-9]{2,2}/g).map((hexByte) => parseInt(hexByte, 16))
+                normalizedGuid.match(/[a-f0-9]{2}/g).map((hexByte) => parseInt(hexByte, 16))
             );
             return Guid.fromBytes(bytes);
-        } else if (/^[01]{128,128}$/i.test(normalizedGuid)) {
+        } else if (normalizedGuid.length === 48 && isValidVersion4GuidForBase(normalizedGuid, 10)) {
             let bytes = Uint8Array.from(
-                normalizedGuid.match(/[01]{8,8}/g).map((binByte) => parseInt(binByte, 2))
+                normalizedGuid.match(/[0-9]{3}/g).map((octByte) => parseInt(octByte, 10))
+            );
+            return Guid.fromBytes(bytes);
+        } else if (normalizedGuid.length === 48 && isValidVersion4GuidForBase(normalizedGuid, 8)) {
+            let bytes = Uint8Array.from(
+                normalizedGuid.match(/[0-7]{3}/g).map((octByte) => parseInt(octByte, 8))
+            );
+            return Guid.fromBytes(bytes);
+        } else if (normalizedGuid.length === 128 && isValidVersion4GuidForBase(normalizedGuid, 2)) {
+            let bytes = Uint8Array.from(
+                normalizedGuid.match(/[01]{8}/g).map((binByte) => parseInt(binByte, 2))
             );
             return Guid.fromBytes(bytes);
         }
@@ -102,7 +104,7 @@ export class Guid {
             // its width is what we should pad to.
             let width = (255).toString(base).length;
             return (byte: number) => {
-                Guid.ensureByte(byte);
+                ensureByte(byte);
                 if (Guid.memoizedStrings[base] && Guid.memoizedStrings[base][byte]) {
                     return Guid.memoizedStrings[base][byte];
                 }
@@ -110,71 +112,6 @@ export class Guid {
             };
         }
         throw Error(`Unable to get byte converter for base ${base}.`);
-    }
-
-    /**
-     * Test if a string is hexadecimal
-     * @param maybeHex A string that may be hexadecimal
-     * @returns true if the string could be parsed as hexadecimal
-     */
-    public static isHexString(maybeHex: string): boolean {
-        return (
-            maybeHex.length !== 0 && maybeHex.length % 2 === 0 && !/[^a-fA-F0-9]/u.test(maybeHex)
-        );
-    }
-
-    /**
-     * Tests a hexadecimal string to see if it's a valid GUID. Can be braced w/ or w/out whitespace around braces.
-     * @param guidString a hexadecimal-ish GUID string. Can include leading/trailing braces.
-     * @returns true if this string could be parsed as a GUID.
-     */
-    public static isValidV4HexString(guidString: string): boolean {
-        const normalizedGuidString = Guid.normalizeGuidString(guidString);
-        const version = normalizedGuidString.charAt(12);
-        const variant = normalizedGuidString.charAt(16);
-        return (
-            normalizedGuidString.length === 32 &&
-            Guid.isHexString(normalizedGuidString) &&
-            version === '4' &&
-            ['8', '9', 'a', 'b'].indexOf(variant) > -1
-        );
-    }
-
-    public static isValidGuidForBase(guidString: string, base: number = 16): boolean {
-        const normalizedGuidString = Guid.normalizeGuidString(guidString);
-        // get started w/ string lengths
-        const byteWidth = (255).toString(base).length;
-        const expectedWidth = byteWidth * 16;
-        if (expectedWidth !== normalizedGuidString.length) {
-            return false;
-        }
-
-        // this only validates the alphabets
-        const alphabet = Array.apply(null, { length: base })
-            .map(eval.call, Number)
-            .map((num) => num.toString(base));
-        const regExp = new RegExp(`^[${alphabet.join('')}]{${expectedWidth}}$`, 'i');
-        if (!regExp.test(normalizedGuidString)) {
-            return false;
-        }
-
-        // extract the required bytes
-        const byte6str = normalizedGuidString.slice(6 * byteWidth, 7 * byteWidth);
-        const byte8str = normalizedGuidString.slice(8 * byteWidth, 9 * byteWidth);
-
-        console.log({byte6str, byte8str})
-
-        // parse version and variant
-        const byte6 = parseInt(byte6str, base);
-        const byte8 = parseInt(byte8str, base);
-        const version = (byte6 & 0b11110000) >> 4;
-        const variant = (byte8 & 0b11000000) >> 6;
-
-        if(version !== 4 || variant !== 2){
-            return false;
-        }
-
-        return true;
     }
 
     /**
@@ -247,21 +184,6 @@ export class Guid {
     }
 
     /**
-     * Cleans up a string to be parsed or compared.
-     * @param guidString Potentially ugly GUID/UUID string
-     * @returns Lowercase GUID/UUID string with whitespace, hyphens and braces removed.
-     */
-    public static normalizeGuidString(guidString: string): string {
-        return guidString
-            .trim()
-            .toLowerCase()
-            .replace(/-/g, '')
-            .replace(/^\{/, '')
-            .replace(/\}$/, '')
-            .trim();
-    }
-
-    /**
      * Gets the Uint8Array of numbers comprising the GUID/UUID value;
      * @returns a copy of the bytes array representing this GUID/UUID
      */
@@ -307,6 +229,6 @@ export class Guid {
      * @returns {BigInt}
      */
     public valueOf(): BigInt {
-        return BigInt(Guid.normalizeGuidString(this.toString(10)));
+        return BigInt(normalizeGuidString(this.toString(10)));
     }
 }

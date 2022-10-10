@@ -1,33 +1,9 @@
 import { expect } from 'chai';
 import { Guid } from './Guid';
 
+import { isValidVersion4GuidForBase } from './util/isValidVersion4GuidForBase';
+
 global.crypto = require('crypto').webcrypto;
-
-const uglyGuids = [
-    '     {a1c63aa1-e77a-4f15-9a3d-87b86a1c202d}', // outside left 
-    // 10100001110001100011101010100001111001110111101001010000000000000000000000000000000000000000000000000000000000000000000000000000
-    // 10100001110001100011101010100001111001110111101001001111000101011001101000111101100001111011100001101010000111000010000000101101
-    '{     a1c63aa1-e77a-4f15-9a3d-87b86a1c202d}', // inside left
-    '     {     a1c63aa1-e77a-4f15-9a3d-87b86a1c202d}', // both left
-    '{a1c63aa1-e77a-4f15-9a3d-87b86a1c202d}     ', // outside right
-    '{a1c63aa1-e77a-4f15-9a3d-87b86a1c202d     }', // inside right
-    '{a1c63aa1-e77a-4f15-9a3d-87b86a1c202d     }     ', // both right
-
-    '     {A1C63AA1-E77A-4F15-9A3D-87B86A1C202D}', // OUTSIDE LEFT
-    '{     A1C63AA1-E77A-4F15-9A3D-87B86A1C202D}', // INSIDE LEFT
-    '     {     A1C63AA1-E77A-4F15-9A3D-87B86A1C202D}', // BOTH LEFT
-    '{A1C63AA1-E77A-4F15-9A3D-87B86A1C202D}     ', // OUTSIDE RIGHT
-    '{A1C63AA1-E77A-4F15-9A3D-87B86A1C202D     }', // INSIDE RIGHT
-    '{A1C63AA1-E77A-4F15-9A3D-87B86A1C202D     }     ', // BOTH RIGHT
-
-    '     {a1c63aa1-e77a-4f15-9a3d-87b86a1c202d}     ', // outside all
-    '{     a1c63aa1-e77a-4f15-9a3d-87b86a1c202d     }', // inside all
-    '     {     a1c63aa1-e77a-4f15-9a3d-87b86a1c202d     }     ', // both all
-
-    '     {A1C63AA1-E77A-4F15-9A3D-87B86A1C202D}     ', // OUTSIDE ALL
-    '{     A1C63AA1-E77A-4F15-9A3D-87B86A1C202D     }', // INSIDE ALL
-    '     {     A1C63AA1-E77A-4F15-9A3D-87B86A1C202D     }     ', // BOTH ALL
-];
 
 const invalidVersions = [
     '     {a1c63aa1-e77a-af15-9a3d-87b86a1c202d}', // outside left
@@ -119,7 +95,7 @@ describe('public static methods', () => {
         });
     });
 
-    describe('fromBytes()', () => {
+    describe('fromBytes(bytes)', () => {
         it('should throw when a too-short byte array is provided', () => {
             let notEnoughBytes = new Uint8Array(1);
             notEnoughBytes.fill(0);
@@ -149,7 +125,7 @@ describe('public static methods', () => {
         });
     });
 
-    describe('fromString()', () => {
+    describe('fromString(guidString)', () => {
         it('should return valid GUID/UUID with uppercase-hyphenated hex GUIDs', () => {
             let uppercase = 'AAAAAAAA-AAAA-4AAA-BAAA-AAAAAAAAAAAA';
             let guid = Guid.fromString(uppercase);
@@ -161,6 +137,17 @@ describe('public static methods', () => {
             let guid = Guid.fromString(lowercase);
             expect(guid).to.be.instanceOf(Guid);
             expect(guid.toString()).to.equal('aaaaaaaa-aaaa-4aaa-baaa-aaaaaaaaaaaa');
+        });
+        it('should return valid GUID/UUID from bin/oct/dec/hex string', () => {
+            let guid = Guid.newGuid();
+            [2,8,10,16].forEach(base => {
+                let str = guid.toString(base);
+                let cloned = Guid.fromString(str);
+                expect(cloned.toString()).to.equal(guid.toString(), `assertion failed for base ${base}`)
+            })
+            let octStr = guid.toString(10);
+            let clonedGuid = Guid.fromString(octStr);
+            expect(clonedGuid.toString()).to.equal(guid.toString());
         });
         it('should return valid GUID/UUID with binary string', () => {
             let binary =
@@ -181,6 +168,7 @@ describe('public static methods', () => {
                 '10101010' + // 14
                 '10101010' + // 15
                 ''; // omg i had to make the numbers above line up.
+                console.log({binary});
             let guid = Guid.fromString(binary);
             expect(guid).to.be.instanceOf(Guid);
             expect(guid.toString()).to.equal('aaaaaaaa-aaaa-4aaa-baaa-aaaaaaaaaaaa');
@@ -192,7 +180,7 @@ describe('public static methods', () => {
         });
     });
 
-    describe('getByteConverter', () => {
+    describe('getByteConverter(base)', () => {
         it('should return a byte converter for supported bases', () => {
             expect(() =>
                 supportedOutputBases.map((base) => Guid.getByteConverter(base))
@@ -263,43 +251,6 @@ describe('public static methods', () => {
         });
     });
 
-    describe('isHexString', () => {
-        // adequately tested by other tests
-    });
-
-    describe('isValidV4HexString', () => {
-        it('should validate GUID/UUID strings with braces and optional whitespace', () => {
-            uglyGuids.forEach((guidString) => {
-                let isValid = Guid.isValidV4HexString(guidString);
-                expect(isValid).to.be.true;
-            });
-        });
-
-        it('should NOT validate GUID/UUID strings with invalid version field', () => {
-            invalidVersions.forEach((guidString) => {
-                let isValid = Guid.isValidV4HexString(guidString);
-                expect(isValid).to.be.false;
-            });
-        });
-
-        it('should NOT validate GUID/UUID strings with invalid variant field', () => {
-            invalidVariants.forEach((guidString) => {
-                let isValid = Guid.isValidV4HexString(guidString);
-                expect(isValid).to.be.false;
-            });
-        });
-
-        it('should NOT validate empty strings', () => {
-            let isValid = Guid.isValidV4HexString('');
-            expect(isValid).to.be.false;
-        });
-
-        it('should NOT validate if any non-hex characters are present', () => {
-            let isValid = Guid.isValidV4HexString('a1c63aa1-e77a-4f1z-9a3d-87b86a1c202d');
-            expect(isValid).to.be.false;
-        });
-    });
-
     describe('memoize', () => {
         it('should throw if attempting to memoize an base less than 2', () => {
             expect(() => Guid.memoize(1)).to.throw();
@@ -341,7 +292,7 @@ describe('public static methods', () => {
         it('should produce valid v4 GUID/UUID', () => {
             let combGuid = Guid.newCombGuid();
             let combString = combGuid.toString();
-            expect(Guid.isValidV4HexString(combString)).to.be.true;
+            expect(isValidVersion4GuidForBase(combString, 16)).to.be.true;
         });
 
         it('should produce sequential values', async () => {
@@ -370,39 +321,6 @@ describe('public static methods', () => {
         it('should allow a new, random GUID/UUID to be created.', () => {
             const guid = Guid.newGuid();
             expect(guid.toString()).to.length(36);
-        });
-    });
-
-    describe('normalizeGuidString', () => {
-        it('should strip hyphens, braces, and lowercase all valid but ugly GUID/UUID strings', () => {
-            uglyGuids.forEach((guidString) => {
-                const normalized = Guid.normalizeGuidString(guidString);
-                expect(normalized).to.equal('a1c63aa1e77a4f159a3d87b86a1c202d');
-                expect(normalized.length).to.equal(32);
-            });
-        });
-    });
-
-    describe('isValidGuidForBase', () => {
-        const guid = Guid.fromString('ac0c6a94-c873-4dea-894c-a1ff614536ba');
-        it('should validate hexadecimal', () => {
-            ['8', '9', 'a', 'b'].forEach((variant) => {
-                let guidStr = `ac0c6a94-c873-4dea-${variant}94c-a1ff614536ba`;
-                let isValidHex = Guid.isValidGuidForBase(guidStr, 16);
-                expect(isValidHex, `assertion failed with variant '${variant}'`).to.be.true;
-            });
-        });
-
-        it('should validate decimal', () => {
-            const dec = guid.toString(10);
-            let isValidDec = Guid.isValidGuidForBase(dec, 10);
-            expect(isValidDec).to.be.true;
-        });
-
-        it('should validate binary', () => {
-            const bin = guid.toString(2);
-            let isValidBin = Guid.isValidGuidForBase(bin, 2);
-            expect(isValidBin).to.be.true;
         });
     });
 });
