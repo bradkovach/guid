@@ -168,7 +168,6 @@ describe('public static methods', () => {
                 '10101010' + // 14
                 '10101010' + // 15
                 ''; // omg i had to make the numbers above line up.
-                console.log({binary});
             let guid = Guid.fromString(binary);
             expect(guid).to.be.instanceOf(Guid);
             expect(guid.toString()).to.equal('aaaaaaaa-aaaa-4aaa-baaa-aaaaaaaaaaaa');
