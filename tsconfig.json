@@ -1,17 +1,13 @@
 {
-  "compilerOptions": {
-    "target": "ES5",
-    "lib": ["ES2017","dom"],
-    "module": "commonjs",
-    "declaration": true,
-    "esModuleInterop": true,
-    "rootDir": "src/",
-    "outDir": "dist/"
-  },
-  "include": [
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "src/**/*.spec.ts"
-  ]
-}
+    "compilerOptions": {
+      "esModuleInterop": true,
+      "rootDir": "src/",
+      "target": "ES5"
+    },
+    "include": [
+      "src/**/*.ts"
+    ],
+    "exclude": [
+      "src/**/*.spec.ts"
+    ]
+  }

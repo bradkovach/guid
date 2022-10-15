@@ -1,57 +1,8 @@
 import { expect } from 'chai';
 import { Guid } from './Guid';
+import { getRandomValues } from './util/getRandomValues';
 
 import { isValidVersion4GuidForBase } from './util/isValidVersion4GuidForBase';
-
-global.crypto = require('crypto').webcrypto;
-
-const invalidVersions = [
-    '     {a1c63aa1-e77a-af15-9a3d-87b86a1c202d}', // outside left
-    '{     a1c63aa1-e77a-af15-9a3d-87b86a1c202d}', // inside left
-    '     {     a1c63aa1-e77a-af15-9a3d-87b86a1c202d}', // both left
-    '{a1c63aa1-e77a-af15-9a3d-87b86a1c202d}     ', // outside right
-    '{a1c63aa1-e77a-af15-9a3d-87b86a1c202d     }', // inside right
-    '{a1c63aa1-e77a-af15-9a3d-87b86a1c202d     }     ', // both right
-
-    '     {A1C63AA1-E77A-AF15-9A3D-87B86A1C202D}', // OUTSIDE LEFT
-    '{     A1C63AA1-E77A-AF15-9A3D-87B86A1C202D}', // INSIDE LEFT
-    '     {     A1C63AA1-E77A-AF15-9A3D-87B86A1C202D}', // BOTH LEFT
-    '{A1C63AA1-E77A-AF15-9A3D-87B86A1C202D}     ', // OUTSIDE RIGHT
-    '{A1C63AA1-E77A-AF15-9A3D-87B86A1C202D     }', // INSIDE RIGHT
-    '{A1C63AA1-E77A-AF15-9A3D-87B86A1C202D     }     ', // BOTH RIGHT
-
-    '     {a1c63aa1-e77a-af15-9a3d-87b86a1c202d}     ', // outside all
-    '{     a1c63aa1-e77a-af15-9a3d-87b86a1c202d     }', // inside all
-    '     {     a1c63aa1-e77a-af15-9a3d-87b86a1c202d     }     ', // both all
-
-    '     {A1C63AA1-E77A-AF15-9A3D-87B86A1C202D}     ', // OUTSIDE ALL
-    '{     A1C63AA1-E77A-AF15-9A3D-87B86A1C202D     }', // INSIDE ALL
-    '     {     A1C63AA1-E77A-AF15-9A3D-87B86A1C202D     }     ', // BOTH ALL
-];
-
-const invalidVariants = [
-    '     {a1c63aa1-e77a-af15-1a3d-87b86a1c202d}', // outside left
-    '{     a1c63aa1-e77a-af15-1a3d-87b86a1c202d}', // inside left
-    '     {     a1c63aa1-e77a-af15-1a3d-87b86a1c202d}', // both left
-    '{a1c63aa1-e77a-af15-1a3d-87b86a1c202d}     ', // outside right
-    '{a1c63aa1-e77a-af15-1a3d-87b86a1c202d     }', // inside right
-    '{a1c63aa1-e77a-af15-1a3d-87b86a1c202d     }     ', // both right
-
-    '     {a1c63aa1-e77a-af15-1a3d-87b86a1c202d}     ', // outside all
-    '{     a1c63aa1-e77a-af15-1a3d-87b86a1c202d     }', // inside all
-    '     {     a1c63aa1-e77a-af15-1a3d-87b86a1c202d     }     ', // both all
-
-    '     {A1C63AA1-E77A-AF15-1A3D-87B86A1C202D}', // OUTSIDE LEFT
-    '{     A1C63AA1-E77A-AF15-1A3D-87B86A1C202D}', // INSIDE LEFT
-    '     {     A1C63AA1-E77A-AF15-1A3D-87B86A1C202D}', // BOTH LEFT
-    '{A1C63AA1-E77A-AF15-1A3D-87B86A1C202D}     ', // OUTSIDE RIGHT
-    '{A1C63AA1-E77A-AF15-1A3D-87B86A1C202D     }', // INSIDE RIGHT
-    '{A1C63AA1-E77A-AF15-1A3D-87B86A1C202D     }     ', // BOTH RIGHT
-
-    '     {A1C63AA1-E77A-AF15-1A3D-87B86A1C202D}     ', // OUTSIDE ALL
-    '{     A1C63AA1-E77A-AF15-1A3D-87B86A1C202D     }', // INSIDE ALL
-    '     {     A1C63AA1-E77A-AF15-1A3D-87B86A1C202D     }     ', // BOTH ALL
-];
 
 const supportedOutputBases = (function () {
     let bases: number[] = [];
@@ -74,7 +25,6 @@ describe('public static methods', () => {
         });
 
         it('toString() should return the null GUID/UUID string in binary', () => {
-            // 111111111111111111111111111111111111111111111111
             expect(nullGuid.toString(2)).to.equal(
                 [
                     '0'.repeat(32),
@@ -88,9 +38,13 @@ describe('public static methods', () => {
 
         it('toString() should return the null GUID/UUID string in octal', () => {
             expect(nullGuid.toString(8)).to.equal(
-                ['0'.repeat(12), '0'.repeat(6), '0'.repeat(6), '0'.repeat(6), '0'.repeat(18)].join(
-                    '-'
-                )
+                [
+                    '0'.repeat(12), 
+                    '0'.repeat(6), 
+                    '0'.repeat(6), 
+                    '0'.repeat(6), 
+                    '0'.repeat(18)
+                ].join('-')
             );
         });
     });
@@ -114,14 +68,14 @@ describe('public static methods', () => {
 
         it('should set version and variant', () => {
             let byteArray = new Uint8Array(16);
-            crypto.getRandomValues(byteArray);
+            getRandomValues(byteArray);
             byteArray[6] = 0;
             byteArray[8] = 0;
             let guid = Guid.fromBytes(byteArray.slice());
             let guidBytes = guid.toBytes();
 
             expect(guidBytes[6]).to.not.equal(0, 'byte 6 was not enforced');
-            expect(guidBytes[8]).to.not.equal(0, 'byte 8 was not enforce');
+            expect(guidBytes[8]).to.not.equal(0, 'byte 8 was not enforced');
         });
     });
 
@@ -182,15 +136,15 @@ describe('public static methods', () => {
     describe('getByteConverter(base)', () => {
         it('should return a byte converter for supported bases', () => {
             expect(() =>
-                supportedOutputBases.map((base) => Guid.getByteConverter(base))
+                supportedOutputBases.map((base) => Guid.getByteSerializer(base))
             ).to.not.throw();
 
-            expect(() => Guid.getByteConverter(37)).to.throw(Error);
+            expect(() => Guid.getByteSerializer(37)).to.throw(Error);
         });
 
         it('should convert to binary strings', () => {
             let base = 2;
-            let toBinary = Guid.getByteConverter(base);
+            let toBinary = Guid.getByteSerializer(base);
             let zero = toBinary(0);
             let basePlus1 = toBinary(base + 1);
             let endOfByte = toBinary(255);
@@ -202,7 +156,7 @@ describe('public static methods', () => {
 
         it('should convert to octal strings', () => {
             let base = 8;
-            let toOctal = Guid.getByteConverter(base);
+            let toOctal = Guid.getByteSerializer(base);
             let zero = toOctal(0);
             let basePlus1 = toOctal(base + 1);
             let endOfByte = toOctal(255);
@@ -214,7 +168,7 @@ describe('public static methods', () => {
 
         it('should convert to decimal strings', () => {
             let base = 10;
-            let toDecimal = Guid.getByteConverter(base);
+            let toDecimal = Guid.getByteSerializer(base);
             let zero = toDecimal(0);
             let basePlus1 = toDecimal(base + 1);
             let endOfByte = toDecimal(255);
@@ -226,7 +180,7 @@ describe('public static methods', () => {
 
         it('should convert to hexadecimal strings', () => {
             let base = 16;
-            let toHex = Guid.getByteConverter(base);
+            let toHex = Guid.getByteSerializer(base);
             let zero = toHex(0);
             let basePlus1 = toHex(base + 1);
             let endOfByte = toHex(255);
@@ -240,11 +194,11 @@ describe('public static methods', () => {
             let belowRange = 0 - 1;
             let aboveRange = 0b11111111 + 1;
             expect(() => {
-                let convertToBinary = Guid.getByteConverter(2);
+                let convertToBinary = Guid.getByteSerializer(2);
                 convertToBinary(belowRange);
             }).to.throw(Error);
             expect(() => {
-                let convertToBinary = Guid.getByteConverter(2);
+                let convertToBinary = Guid.getByteSerializer(2);
                 convertToBinary(aboveRange);
             }).to.throw(Error);
         });
@@ -294,13 +248,11 @@ describe('public static methods', () => {
             expect(isValidVersion4GuidForBase(combString, 16)).to.be.true;
         });
 
-        it('should produce sequential values', async () => {
-            const snooze = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        it('should produce sequential values', () => {
 
             const combGuids: Guid[] = [];
-            for await (const num of [0, 1, 2, 3, 4]) {
+            for (const num of [0, 1, 2, 3, 4]) {
                 combGuids.push(Guid.newCombGuid());
-                await snooze(1 + num * 0);
             }
 
             expect(combGuids.length).to.be.equal(5, 'comb guids did not populate properly.');
@@ -320,6 +272,13 @@ describe('public static methods', () => {
         it('should allow a new, random GUID/UUID to be created.', () => {
             const guid = Guid.newGuid();
             expect(guid.toString()).to.length(36);
+        });
+    });
+
+    describe('setPoolSize()', ()=>{
+        it('should require a positive integer for pool size', ()=>{
+            expect(()=>Guid.resizePool(-1), 'Failed negative pool size assertion').to.throw(Error);
+            expect(()=>Guid.resizePool(420.69), 'Failed integer assertion').to.throw(Error);
         });
     });
 });

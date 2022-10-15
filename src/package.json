@@ -1,0 +1,23 @@
+{
+  "name": "bradkovach-guid-test",
+  "version": "1.0.0",
+  "description": "Zero-dependency RFC 4122-compliant GUID/UUID generation library.",
+  "main": "./cjs/index.js",
+  "module": "./mjs/index.mjs",
+  "exports": {
+    ".": {
+      "import": "./mjs/index.mjs",
+      "types": "./index.d.ts",
+      "require": "./cjs/index.js"
+    },
+    "./util": {
+      "import": "./mjs/util/index.mjs",
+      "types": "./util/index.d.js",
+      "require": "./cjs/util/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bradkovach/guid"
+  }
+}

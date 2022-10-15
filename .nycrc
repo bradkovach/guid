@@ -1,20 +1,18 @@
 {
-    "nyc": {
-        "extends": "@istanbuljs/nyc-config-typescript",
-        "check-coverage": true,
-        "all": true,
-        "include": [
-            "src/**/!(*.spec.*).[tj]s?(x)"
-        ],
-        "exclude": [
-            "src/_tests_/**/*.*"
-        ],
-        "reporter": [
-            "html",
-            "lcov",
-            "text",
-            "text-summary"
-        ],
-        "report-dir": "coverage"
-    }
+    "extends": "@istanbuljs/nyc-config-typescript",
+    "check-coverage": true,
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "src/**/*.spec.ts",
+        "src/util/getRandomValues.ts"
+    ],
+    "reporter": [
+        "html",
+        "lcov",
+        "text",
+        "text-summary"
+    ],
+    "report-dir": "coverage"
 }

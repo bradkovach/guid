@@ -1,14 +1,45 @@
+import { RandomBytePool } from './RandomBytePool';
 import { ensureByte } from './util/ensureByte';
 import { isValidVersion4GuidForBase } from './util/isValidVersion4GuidForBase';
 import { normalizeGuidString } from './util/normalizeGuidString';
 
 export type ByteConverter = (byte: number) => string;
 
+/**
+ * Number of bytes in a GUID/UUID
+ */
+export const BYTES_IN_GUID = 16;
+
+/**
+ * Minimum value for a byte (inclusive).
+ */
+export const BYTE_MIN = 0;
+
+/**
+ * Maximum value for a byte (inclusive).
+ */
+export const BYTE_MAX = 255;
+
+/**
+ * Creates, parses, or represents a GUID/UUID.
+ */
 export class Guid {
+    /**
+     * Sometimes COMB guid generation is too fast, and the guids aren't sequential
+     * in the unit tests.  combIdx guarantees that these are sequential with no
+     * delays, regardless of where they are generated or how (even in loops).
+     */
+    private static combIdx: number = 0;
+
     /**
      * Memoized strings used to speed serialization
      */
     private static memoizedStrings: Record<number, string[]> = {};
+
+    /**
+     * A RandomBytePool, used to provide random data to construct new, random GUID/UUID instances.
+     */
+    private static randomBytePool: RandomBytePool = new RandomBytePool(BYTES_IN_GUID * BYTES_IN_GUID);
 
     /**
      * The internal array of bytes (numbers [0,255]) representing this guid
@@ -16,8 +47,12 @@ export class Guid {
     private _bytes: Uint8Array;
 
     /**
-     * Private constructor for Guid. use newGuid(), newCombGuid(), fromString(), fromBytes()
-     * to build new Guid
+     * Private constructor for Guid. See static factories to create new Guids.
+     * @see Guid.Empty,
+     * @see Guid.newGuid()
+     * @see Guid.newCombGuid()
+     * @see Guid.fromString()
+     * @see Guid.fromBytes()
      */
     private constructor(bytes: Uint8Array) {
         this._bytes = bytes;
@@ -27,9 +62,15 @@ export class Guid {
      * Get the empty/null Guid.
      */
     public static get Empty(): Guid {
-        const bytes = new Uint8Array(16);
-        bytes.fill(0);
+        const bytes = new Uint8Array(BYTES_IN_GUID).fill(0);
         return new Guid(bytes);
+    }
+
+    /**
+     * Empties the memoizedStrings cache.
+     */
+    public static clearMemoizedStrings(): void {
+        Guid.memoizedStrings = {};
     }
 
     /**
@@ -37,23 +78,29 @@ export class Guid {
      * @throws {Error} when the bytes array is invalid (null or length <> 16)
      */
     public static fromBytes(bytes: Uint8Array) {
-        if (!bytes || bytes.length !== 16) {
-            throw Error('Unable to create Guid from provided bytes');
+        if (!bytes || bytes.length !== BYTES_IN_GUID) {
+            throw Error(
+                `Unable to create Guid from provided bytes. Ensure array length is ${BYTES_IN_GUID}.`
+            );
         }
 
-        // ensure compliance with RFC/v4 spec
-        //          10101010    start
-        //      &   00001111    apply & to mask
-        //      =   00001010    first four bits are not kept
-        //      |   01000000    apply | to add
-        //      =   01001010    result has the first four bits set to version
-        bytes[6] = 0x40 | (bytes[6] & 0xf);
+        /*
+            ensure compliance with RFC/v4 spec
+                    10101010    start example
+                &   00001111    apply & to mask
+                =   00001010    first four bits are not kept
+                |   01000000    apply | to add
+                =   01001010    result has the first four bits set to version
+        */
+        bytes[6] = 0x40 | (bytes[6] & 0x0f);
 
-        //          10101010    start
-        //      &   00111111    apply & to mask
-        //      =   00101010    first two bits are not kept
-        //      |   10000000    apply | to add
-        //      =   10101010    result has first two bits set to variant
+        /* 
+                 10101010    start example
+             &   00111111    apply & to mask
+             =   00101010    first two bits are not kept
+             |   10000000    apply | to add
+             =   10101010    result has first two bits set to variant
+        */
         bytes[8] = 0x80 | (bytes[8] & 0x3f);
 
         return new Guid(bytes);
@@ -71,25 +118,25 @@ export class Guid {
             let bytes = Uint8Array.from(
                 normalizedGuid.match(/[a-f0-9]{2}/g).map((hexByte) => parseInt(hexByte, 16))
             );
-            return Guid.fromBytes(bytes);
+            return new Guid(bytes);
         } else if (normalizedGuid.length === 48 && isValidVersion4GuidForBase(normalizedGuid, 10)) {
             let bytes = Uint8Array.from(
                 normalizedGuid.match(/[0-9]{3}/g).map((octByte) => parseInt(octByte, 10))
             );
-            return Guid.fromBytes(bytes);
+            return new Guid(bytes);
         } else if (normalizedGuid.length === 48 && isValidVersion4GuidForBase(normalizedGuid, 8)) {
             let bytes = Uint8Array.from(
                 normalizedGuid.match(/[0-7]{3}/g).map((octByte) => parseInt(octByte, 8))
             );
-            return Guid.fromBytes(bytes);
+            return new Guid(bytes);
         } else if (normalizedGuid.length === 128 && isValidVersion4GuidForBase(normalizedGuid, 2)) {
             let bytes = Uint8Array.from(
                 normalizedGuid.match(/[01]{8}/g).map((binByte) => parseInt(binByte, 2))
             );
-            return Guid.fromBytes(bytes);
+            return new Guid(bytes);
         }
         throw Error(
-            `Unable to parse valid v4 guid from ${guidString}. String was not valid hex or binary.`
+            `Unable to parse valid v4 guid from ${guidString}. String was not valid bin/oct/dec/hex.`
         );
     }
 
@@ -98,11 +145,11 @@ export class Guid {
      * @param base A valid numeric base (2-36)
      * @returns {ByteConverter} A function that can serialize a byte in the specified base.
      */
-    public static getByteConverter(base: number): ByteConverter {
+    public static getByteSerializer(base: number): ByteConverter {
         if (1 < base && base < 37) {
             // since 255 is the max value of a byte,
             // its width is what we should pad to.
-            let width = (255).toString(base).length;
+            let width = BYTE_MAX.toString(base).length;
             return (byte: number) => {
                 ensureByte(byte);
                 if (Guid.memoizedStrings[base] && Guid.memoizedStrings[base][byte]) {
@@ -118,12 +165,13 @@ export class Guid {
      * Memoizes toString values for a base. Improves toString(base) performance.
      * @param base Any JS-supported base for memoization
      * @returns {string[]} A lookup array for number (0-255) to base string
-     * @throws {Error} Error from getByteConverter if the base is invalid;
+     * @throws {Error} Error from Guid.getByteSerializer if the base is invalid;
+     * @see Guid.getByteSerializer Throws errors that are re-thrown.
      */
     public static memoize(base: number): string[] {
         try {
             if (!Guid.memoizedStrings[base]) {
-                let converter = Guid.getByteConverter(base);
+                let converter = Guid.getByteSerializer(base);
                 Guid.memoizedStrings[base] = [];
                 for (let i = 0; i < 256; i++) {
                     Guid.memoizedStrings[base][i] = converter(i);
@@ -136,37 +184,26 @@ export class Guid {
     }
 
     /**
-     * Empties the memoizedStrings cache.
-     */
-    public static clearMemoizedStrings(): void {
-        Guid.memoizedStrings = {};
-    }
-
-    /**
      * Creates a COMB guid, which is guaranteed to be sequential and v4, while still being quite random.
      * This is the same approach as this... https://github.com/danielboven/ordered-uuid-v4/blob/main/src/stringify.js
      * but instead of copying hex strings, this is copying bytes.
      */
     public static newCombGuid(): Guid {
-        const bytes = new Uint8Array(16);
-        crypto.getRandomValues(bytes);
+        const bytes = Guid.randomBytePool.getBytes(BYTES_IN_GUID);
 
-        const dateNow = Date.now();
-        // const dateNow = 1_664_395_277_441;
-        // const dateNow = 2_000_000_000_000;
-        // const dateNow = parseInt(`1${'0'.repeat(48)}`, 2);
-        // const dateNow = Math.pow(2, 48);
+        const dateNowMs = Date.now();
         const perfNow = performance.now();
-        // const perfNow = 9999999.9999;
-        const combNow = (dateNow + perfNow) * 100;
+        const combNow = (dateNowMs + perfNow + Guid.combIdx++) * 100;
         const roundNow = Math.round(combNow);
 
         for (let offset = 0; offset < 6; offset++) {
             const tgtIdx = 5 - offset;
             const shift = offset * 8;
 
-            // doesn't work because JS can only shift 32 bits
-            // bytes[tgtIdx] = (roundNow >> shift) & 255;
+            /**
+             * This is a bit shifting operation. JS can only shift 32 bits
+             * So this is using rounded, negative exponentiation to achieve the same result
+             */
             bytes[tgtIdx] = Math.floor(roundNow * Math.pow(2, shift * -1)) & 255;
         }
 
@@ -178,9 +215,16 @@ export class Guid {
      * @returns New guid built on random information.
      */
     public static newGuid(): Guid {
-        const bytes = new Uint8Array(16);
-        crypto.getRandomValues(bytes);
-        return Guid.fromBytes(bytes);
+        return Guid.fromBytes(Guid.randomBytePool.getBytes(BYTES_IN_GUID));
+    }
+
+    /**
+     * Sets the random byte pool to poolSize number of Guid's worth of random bytes.
+     * For example, if poolSize is 1,
+     * @param guidCount Set the random byte pool size.  Higher values call the randomization service less.
+     */
+    public static resizePool(guidCount: number): void {
+        Guid.randomBytePool.resize(guidCount * BYTES_IN_GUID);
     }
 
     /**
