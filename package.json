@@ -1,7 +1,7 @@
 {
   "name": "@bradkovach/guid",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Zero-dependency RFC 4122-compliant GUID/UUID generation library.",
   "scripts": {
     "clean": "rm -rf dist/",
