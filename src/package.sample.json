@@ -1,6 +1,6 @@
 {
     "name": "bradkovach-guid-test",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Zero-dependency RFC 4122-compliant GUID/UUID generation library.",
     "main": "./cjs/index.js",
     "module": "./mjs/index.mjs",
